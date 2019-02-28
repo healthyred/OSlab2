@@ -11,6 +11,10 @@ static vector<tuple<ucontext_t *, int>> wait;
 //lock queue
 static ucontext_t* running;
 
+void ending_output(){
+  cout << "Thread library exiting." << endl;
+}
+
 int thread_libinit(thread_startfunc_t func, void*arg)
 {
   ucontext_t * ucontext_ptr = new ucontext_t *;
