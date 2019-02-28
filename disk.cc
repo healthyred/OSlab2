@@ -19,7 +19,7 @@ int max_requests;
 int live_requests;
 int cond;
 vector<SSTF> queue(0);
-
+int start = 10000;
 
 void request_output(int requester, int track){
   cout << "requester " << requester << " track " << track << endl;
@@ -32,22 +32,27 @@ void service_output(int requester, int track){
 void request(char *a) {		
   string file(a);
    int fileNum = file.back()-'0';
+   cout<< "fileNum"<< fileNum<<endl;
    ifstream stream;
    stream.open(file);
    if (stream.is_open()){
      string line;
      int i = 0;
+     thread_lock(0);
      while(getline(stream, line)){
        int intLine = atoi(line.c_str());
        auto x = SSTF(intLine,fileNum);
-       thread_wait(0, get<1>(x));
+       cout<<fileNum<<endl;
+       thread_wait(0,fileNum);
        queue.push_back(x);
-       request_output(get<0>(x), get<1>(x));
-       thread_signal(0, cond);	 
-       thread_wait(0,get<1>(x));
+       request_output(intLine, fileNum);
+       thread_signal(0,cond);
      }
+     thread_unlock(0);
     }
+   
     --live_requests;
+    
 }
 
 void service(char **a)
@@ -61,26 +66,36 @@ void service(char **a)
     }
     ++i;
   }
-  cout<<"service request lock"<<endl;  
-  cout<<"queue size"<<queue.size()<<endl;
-  cout<<"live_request"<<live_requests<<endl;
   thread_lock(0);
+  int j =0;
+  thread_signal(0,live_requests);
+  
   while(live_requests != 0){
-    for(int i =live_requests;i>=0;i--){
+
+    /*for(int i =live_requests;i>=0;i--){
       if(queue.size() < max_requests ||queue.size() < live_requests){
-	cout<<"inti:"<<i<<endl;	
+	cout<<"inti:"<<i<<endl;
 	thread_signal(0, i);
-	thread_wait(0,cond);
       }
-      else{
+      else{*/
+    
+    for (int i = live_requests;i>=0;i--){
+	if(queue.size() <  max_requests && max_requests < live_requests){
+	  thread_signal(0,i);
+	} else if(queue.size() <live_requests){
+	  thread_signal(0,i);
+	}
+	thread_wait(0,cond);
+      
+    cout<<"live_requests"<<live_requests<<endl;
+    if(queue.size() == max_requests ||queue.size() ==live_requests){
       sort(queue.begin(),queue.end());
       int x = get<1>(queue.front());
       service_output(get<0>(queue.front()),get<1>(queue.front()));
       queue.erase(queue.begin());
       thread_signal(0, x);
-      thread_wait(0,cond);
-      }
-     }
+    }
+    }
   }
   thread_unlock(0);
 }
