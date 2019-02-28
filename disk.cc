@@ -23,11 +23,11 @@ vector<SSTF> queue(0);
 int start = 10000;
 int previous =0;
 void request_output(int requester, int track){
-  cout << "requester " << requester << " track " << track << endl;
+  cout << "requester " << track << " track " << requester << endl;
 }
 
 void service_output(int requester, int track){
-  cout << "service requester " << requester << " track " << track << endl;
+  cout << "service requester " << track << " track " << requester << endl;
 }
 
 void request(char *a) {		
