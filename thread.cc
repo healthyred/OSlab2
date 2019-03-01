@@ -10,12 +10,13 @@
 #include <iostream>
 using namespace std;
 
-typedef vector< tuple<ucontext_t*, int> > threadQ;
+//typedef vector< tuple<ucontext_t*, int> > threadQ;
+typedef vector<ucontext_t *> threadQ;
 
 static threadQ readyQueue;
 static threadQ wait;
 static threadQ lock;
-tuple<ucontext_t*, int> running;
+ucontext_t* running;
 
 void ending_output(){
   cout << "Thread library exiting." << endl;
@@ -41,9 +42,9 @@ int thread_libinit(thread_startfunc_t func, void *arg)
   ucontext_ptr->uc_link = NULL;
   makecontext(ucontext_ptr, (void (*)()) start, 2, func, arg);
   swapcontext(NULL, ucontext_ptr);
-  tuple<ucontext_t *, int> thread = make_tuple (ucontext_ptr, arg);
-  readyQueue.push_back(thread);
-  //running = ucontext_prt;
+  
+  readyQueue.push_back(ucontext_ptr);
+  running = ucontext_ptr;
 
   ending_output();
   exit(1);
@@ -61,13 +62,20 @@ int thread_create(thread_startfunc_t func, void*arg)
   ucontext_ptr->uc_stack.ss_flags = 0;
   ucontext_ptr->uc_link = NULL;
   makecontext(ucontext_ptr, (void (*)()) start, 2, func, arg);
-  tuple<ucontext_t *, int> thread = make_tuple (ucontext_ptr, arg);
-  //TODO: making the thread wait for calls, and only when we decide to signal
-  readyQueue.push_back(thread);
+  // tuple<ucontext_t *, int> thread = make_tuple (ucontext_ptr, arg);
+  // TODO: making the thread wait for calls, and only when we decide to signal
+  readyQueue.push_back(ucontext_ptr);
 }
 
 int thread_yield(void){
-  /*Sets the running as the next item of the queue,as running, and then pushes the current running back into the queue*/
+  /*Sets the running as the next item of the queue,as running, and then pushes the current running back into the queue, returns 0 on success and -1 on failure*/
+  ucontext_t *temp = running;
+  ucontext_t *next = readyQueue.at(0);
+  readyQueue.erase(readyQueue.begin());
+  running = next;
+  readyQueue.push_back(temp);
+
+  return 0;
 }
 
 int thread_lock(unsigned int lock){}
