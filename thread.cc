@@ -10,11 +10,11 @@
 #include <iostream>
 using namespace std;
 
-//typedef vector< tuple<ucontext_t*, int> > threadQ;
+typedef vector< tuple<ucontext_t*, int> > threadQCond;
 typedef vector<ucontext_t *> threadQ;
 
 static threadQ readyQueue;
-static threadQ wait;
+static threadQCond wait;
 static threadQ lock;
 ucontext_t* running;
 
@@ -33,7 +33,8 @@ int thread_libinit(thread_startfunc_t func, void *arg)
 // At the end of this function, we loop infinitely
 {
   
-  ucontext_t * ucontext_ptr;
+  ucontext_t * ucontext_ptr = new ucontext_t;
+  ucontext_t * oucp = new ucontext_t;
   getcontext(ucontext_ptr);
   char *stack = new char [STACK_SIZE];
   ucontext_ptr->uc_stack.ss_sp = stack;
@@ -41,20 +42,25 @@ int thread_libinit(thread_startfunc_t func, void *arg)
   ucontext_ptr->uc_stack.ss_flags =0;
   ucontext_ptr->uc_link = NULL;
   makecontext(ucontext_ptr, (void (*)()) start, 2, func, arg);
-  swapcontext(NULL, ucontext_ptr);
-  
+  //maybe swap back to original context at the end of the program (after exit)
+  swapcontext(oucp, ucontext_ptr);
   readyQueue.push_back(ucontext_ptr);
   running = ucontext_ptr;
 
-  ending_output();
-  exit(1);
+  while (!readyQueue.empty() &&running !=NULL){
+    1+1;
+  }
   
+  ending_output();
+ 
+  exit(1);
+  return 1;
 }
 
 int thread_create(thread_startfunc_t func, void*arg)
 /*Whenever a thread is create, we create the context, and push it onto the running queue*/
 {
-  ucontext_t *ucontext_ptr;
+  ucontext_t *ucontext_ptr = new ucontext_t;
   getcontext(ucontext_ptr);
   char *stack = new char [STACK_SIZE];
   ucontext_ptr->uc_stack.ss_sp = stack;
@@ -65,6 +71,7 @@ int thread_create(thread_startfunc_t func, void*arg)
   // tuple<ucontext_t *, int> thread = make_tuple (ucontext_ptr, arg);
   // TODO: making the thread wait for calls, and only when we decide to signal
   readyQueue.push_back(ucontext_ptr);
+  return 1;
 }
 
 int thread_yield(void){
@@ -75,10 +82,12 @@ int thread_yield(void){
   running = next;
   readyQueue.push_back(temp);
 
-  return 0;
+  return 1;
 }
 
-int thread_lock(unsigned int lock){}
+int thread_lock(unsigned int lock){
+  
+}
 int thread_unlock(unsigned int lock){}
 int thread_wait(unsigned int lock, unsigned int cond){}
 int thread_signal(unsigned int lock, unsigned int cond){}
