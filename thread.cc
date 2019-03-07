@@ -10,21 +10,22 @@
 #include <iostream>
 using namespace std;
 
-typedef vector< tuple<ucontext_t*, int> > threadQCond;
+typedef vector<vector<tuple<ucontext_t*, int>>> threadQCond;
 typedef vector<ucontext_t *> threadQ;
 
 static threadQ readyQueue;
-static threadQCond wait;
-static threadQ lock;
+static threadQCond waitQueue;
+static threadQCond lockQueue;
 ucontext_t* running;
 static vector<int> value;
 
-
-void ending_output(){
+void ending_output()
+{
   cout << "Thread library exiting.\n" << endl;
 }
 
-static void start(thread_startfunc_t func, void *arg){
+static void start(thread_startfunc_t func, void *arg)
+{
   func(arg);
 }
 
@@ -49,12 +50,11 @@ int thread_libinit(thread_startfunc_t func, void *arg)
   wait.push_back(ucontext_ptr);
   //readyQueue.push_back(ucontext_ptr);
   running = ucontext_ptr;
-  while (!readyQueue.empty() &&running !=NULL){
+  while (!readyQueue.empty() &&running !=NULL)
+  {
     1+1;
   }
-  
-  ending_output();
- 
+  ending_output(); 
   exit(0);
   return 0;
 }
@@ -72,8 +72,7 @@ int thread_create(thread_startfunc_t func, void*arg)
   makecontext(ucontext_ptr, (void (*)()) start, 2, func, arg);
   // tuple<ucontext_t *, int> thread = make_tuple (ucontext_ptr, arg);
   // TODO: making the thread wait for calls, and only when we decide to signal
-  wait.push_back(ucontext_ptr);
-  // readyQueue.push_back(ucontext_ptr);
+  readyQueue.push_back(ucontext_ptr);
   return 0;
 }
 
@@ -96,8 +95,10 @@ int thread_lock(unsigned int lock){
   {
       value[lock] = 1;
   }else{
-    lock.push_back(running);
-    swapcontext(running, wait.front());
+    lock.push_back(tuple(running,lock));
+    for (int i = 0; i<lockQueue.size();i++)
+      if (get<1>(LockQueue[i]== lock))
+    swapcontext(running, get<0>(lockQueue.front()));
   }
   interrupt_enable();
 }
@@ -105,22 +106,26 @@ int thread_lock(unsigned int lock){
 int thread_unlock(unsigned int lock){
   interrupt_disable();
   value[lock] = 0; //0 is free
-  if (!lock.empty()){
-    ready.push_back(lock.front());
-    lock.erase(lock.front());
+  if (!lockQueue.empty()){
+    ready.push_back(lockQueue.front());
+    lockQueue.erase(lockQueue.front());
   }
   interrupt_enable();
 }
 int thread_wait(unsigned int lock, unsigned int cond)
 {
+interrupt_disable();
 
+
+interrupt_enable(;)
 }
 int thread_signal(unsigned int lock, unsigned int cond)
 {
-
+interrupt_disable();
+interrupt_enable(;)
 }
 int thread_broadcast(unsigned int lock, unsigned int cond)
 {
-
+interrupt_disable();
+interrupt_enable(;)
 }
-
