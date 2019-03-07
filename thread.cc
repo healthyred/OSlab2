@@ -49,7 +49,8 @@ int thread_libinit(thread_startfunc_t func, void *arg)
   wait.push_back(ucontext_ptr);
   //readyQueue.push_back(ucontext_ptr);
   running = ucontext_ptr;
-  while (!readyQueue.empty() &&running !=NULL){
+  
+  while (!readyQueue.empty() && running !=NULL){
     1+1;
   }
   
