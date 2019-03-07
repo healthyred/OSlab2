@@ -107,7 +107,8 @@ int thread_unlock(unsigned int lock){
   interrupt_disable();
   value[lock] = 0; //0 is free
   if (!lockQueue.empty()){
-    ready.push_back(lockQueue.front());
+    readyQueue.push_back(get<0>(lockQueue.front()));
+    swapcontext();
     lockQueue.erase(lockQueue.front());
   }
   interrupt_enable();
@@ -115,17 +116,15 @@ int thread_unlock(unsigned int lock){
 int thread_wait(unsigned int lock, unsigned int cond)
 {
 interrupt_disable();
-
-
-interrupt_enable(;)
+interrupt_enable();
 }
 int thread_signal(unsigned int lock, unsigned int cond)
 {
 interrupt_disable();
-interrupt_enable(;)
+interrupt_enable();
 }
 int thread_broadcast(unsigned int lock, unsigned int cond)
 {
 interrupt_disable();
-interrupt_enable(;)
+interrupt_enable();
 }
