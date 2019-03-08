@@ -198,7 +198,7 @@ int thread_wait(unsigned int lock, unsigned int cond)
   //1 is not properly being stored
   
   if (!waitQueue.count(lock)){
-    
+    cout << "New lock" << endl;
     waitQueue.insert(pair<int,threadQCond>(lock, threadQCond {make_tuple(running,cond)}));
     
   } else {
