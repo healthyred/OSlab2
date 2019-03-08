@@ -16,10 +16,10 @@ typedef vector<tuple<ucontext_t*, int>> threadQCond;
 typedef vector<ucontext_t *> threadQ;
 
 threadQ readyQueue;
-map<int, threadQCond> waitQueue;
-threadQCond lockQueue;
+map<int, threadQCond> waitQueue; //a wait with int
+threadQCond lockQueue; //this has a lock number with ucontext
 static ucontext_t* running;
-map<int, bool> lockBool;
+map<int, bool> lockBool; //a map to check if we have a lock on it
 static ucontext_t* service;
 static ucontext_t* previous;
 
@@ -125,7 +125,7 @@ int thread_create(thread_startfunc_t func, void*arg)
 }
 
 int thread_yield(void){
-  cout << "thread lock.\n" << endl;
+  //cout << "thread lock.\n" << endl;
 
   interrupt_disable();
   /*Sets the running as the next item of the queue,as running, and then pushes the current running back into the queue, returns 0 on success and -1 on failure*/
@@ -142,34 +142,71 @@ int thread_yield(void){
 }
 
 int thread_lock(unsigned int lock){
+  //In this functions, we turn on a lock for a specific function and then ensure that it cannot be accessed
+  
   interrupt_disable();
-  cout << "thread lock.\n" << endl;
-  if (!lockBool.count(lock)){
-      lockBool.insert(pair<int,bool>(lock, false));
-}
-  if (lockBool[lock] ==false)
+  cout << "Trying to lock: " <<lock <<".\n" << endl;
+  if (lockBool.count(lock) == 0){
+    //if lock is not initiated, we create this lock
+    //cout << "adding lock " << lock <<".\n" << endl;
+    lockBool.insert(pair<int,bool>(lock, false));
+  }
+  
+  if (lockBool[lock] == false)
   {
-      lockBool[lock] = true;
+      //Lock the thread, and swap context sinve the thread is locked
+      lockBool[lock] = true;  
+
+      /*lockQueue.push_back(make_tuple(running,lock));
+      ucontext_t *temp = running;
+      ucontext_t *next = readyQueue.front();
+      swapcontext(temp, next);
+      */
+      
   }else{
+    //pushing this thread back, onto the ready queue if lock is called
     lockQueue.push_back(make_tuple(running,lock));
     ucontext_t *temp = running;
     ucontext_t *next = readyQueue.front();
     swapcontext(temp, next);
   }
+  
   interrupt_enable();
 }
 
 int thread_unlock(unsigned int lock){
+  //We unlock a function, and then we can access the stuff since this can be put back onto
+  //a ready queue
+  
   interrupt_disable();
+  
+  //check to see that we have a lock bool
+
+  /*
+  try(){
+    Bool check = lockBool[lock];
+  }
+  catch(){
+    cout << "Tried to unlock nothing. \n" << endl;
+    return -1;
+  }
+  */
+  
   lockBool[lock] = false;
   if (!lockQueue.empty()){
+    //cout << "Trying to unlock: " << lock << ".\n" << endl;
     for (int i = 0; i<lockQueue.size();i++){
-      if (get<1>(lockQueue[i])== lock){
+      if (get<1>(lockQueue[i]) == lock){
+	  //push back the unlocked context into readyqueue
+	  cout << "unlocked: " << lock << ".\n" << endl;	
           readyQueue.push_back(get<0>(lockQueue[i]));
+	  //remove the lock
+	  lockQueue.erase(lockQueue.begin()+i);
           break;
           }
     }
-    lockBool[lock]=true;
+
+    //lockBool[lock]=true;
   }
   interrupt_enable();
 }
@@ -177,25 +214,46 @@ int thread_unlock(unsigned int lock){
 int thread_wait(unsigned int lock, unsigned int cond)
 {
   interrupt_disable();
+  //need to swap running properly
+  //1 is not properly being stored
+  
   if (!waitQueue.count(lock)){
-    waitQueue.insert(pair<int,threadQCond>(lock,   threadQCond {make_tuple(running,cond)}));
+    
+    waitQueue.insert(pair<int,threadQCond>(lock, threadQCond {make_tuple(running,cond)}));
+    
   } else {
+    
     waitQueue[lock].push_back(make_tuple(running,cond));
+    
   }
+
+  ucontext_t* temp = running;
   running = readyQueue.front();
   readyQueue.erase(readyQueue.begin());
-  swapcontext(running,readyQueue.front());
-   interrupt_enable();
+  swapcontext(temp,readyQueue.front());
+  interrupt_enable();
 }
 
 
 int thread_signal(unsigned int lock, unsigned int cond)
 {
   interrupt_disable();
+  //We look inside the wait queue and search for the thread_signal
+  
   for(int i = 0; i<waitQueue[lock].size();i++){
-    if (get<1>(waitQueue[lock][i]) ==cond){
+    
+    if (get<1>(waitQueue[lock][i]) == cond){
+      
+      cout << "Found lock in cond.\n" << endl;
+      
       readyQueue.push_back(get<0>(waitQueue[lock][i]));
+      //ucontext_t* temp = get<0>(waitQueue[lock][i]);
+      //ucontext_t* current = running;
+      //running = temp;
+      //readyQueue.push_back(temp);
       waitQueue[lock].erase(waitQueue[lock].begin()+i);
+      //cout << "The Readyq: " << readyQueue << endl;
+      //swapcontext(running,temp);
       break;
     }
   }
