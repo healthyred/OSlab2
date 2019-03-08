@@ -146,7 +146,7 @@ int thread_lock(unsigned int lock){
   //In this functions, we turn on a lock for a specific function and then ensure that it cannot be accessed
   
   interrupt_disable();
-  cout << "Trying to lock: " <<lock <<".\n" << endl;
+  //cout << "Trying to lock: " <<lock <<".\n" << endl;
   if (lockBool.count(lock) == 0){
     //if lock is not initiated, we create this lock
     //cout << "adding lock " << lock <<".\n" << endl;
