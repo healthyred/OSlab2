@@ -81,6 +81,7 @@ int thread_libinit(thread_startfunc_t func, void *arg)
   catch(bad_alloc){
     delete[] stack;
     delete ucontext_ptr;
+    interrupt_enable();
     return -1;
   }
 
@@ -126,10 +127,10 @@ int thread_create(thread_startfunc_t func, void*arg)
 }
 
 int thread_yield(void){
-  //cout << "thread lock.\n" << endl;
+  //cout<< "thread lock.\n" << endl;
 
   interrupt_disable();
-  /*Sets the running as the next item of the queue,as running, and then pushes the current running back into the queue, returns 0 on success and -1 on failure*/
+  /*Sets the running as the next item of the queue,as running, and then pushes the current running back into the queue, re  turns 0 on success and -1 on failure*/
   if (!readyQueue.empty()){
   ucontext_t *temp = running;
   ucontext_t *next = readyQueue.front();
@@ -144,7 +145,7 @@ int thread_yield(void){
 
 int thread_lock(unsigned int lock){
   //In this functions, we turn on a lock for a specific function and then ensure that it cannot be accessed
-  
+  //cout << "ReadyQ Size " << readyQueue.size() << "\n" << endl;
   interrupt_disable();
   //cout << "Trying to lock: " <<lock <<".\n" << endl;
   if (lockBool.count(lock) == 0){
@@ -164,6 +165,7 @@ int thread_lock(unsigned int lock){
     lockQueue.push_back(make_tuple(running,lock));
     ucontext_t *temp = running;
     ucontext_t *next = readyQueue.front();
+    readyQueue.erase(readyQueue.begin());
     swapcontext(temp, next);
   }
   
@@ -178,7 +180,7 @@ int thread_unlock(unsigned int lock){
   interrupt_disable();
     
   lockBool[lock] = false;
-  cout << "thread unlocked " << lock << "\n"<< endl;
+  //cout << "thread unlocked " << lock << "\n"<< endl;
   if (!lockQueue.empty()){
     //cout << "Trying to unlock: " << lock << ".\n" << endl;
     for (int i = 0; i<lockQueue.size();i++){
@@ -187,13 +189,8 @@ int thread_unlock(unsigned int lock){
           ucontext_t* temp = get<0>(lockQueue[i]);
 	  //cout << "before size" << readyQueue.size() << "\n" << endl;
           readyQueue.push_back(temp);
-	  //remove the lock from the queue of threads waiting for lock
 	  //cout << "after size" << readyQueue.size() << "\n" << endl;
-	  if(temp == NULL){
-	    cout << "temp is null.\n" << endl;
-	  }
-	  
-	  lockQueue.erase(lockQueue.begin());
+	  lockQueue.erase(lockQueue.begin() + i);
           lockBool[lock]=true;
           break;
       }
@@ -208,22 +205,22 @@ int thread_wait(unsigned int lock, unsigned int cond)
   interrupt_disable();
   //need to swap running properly
   //1 is not properly being stored
-  
+  lockBool[lock] = false;
   //we pushing running into wait
   if (!waitQueue.count(lock)){
     //cout << "waitQueue" << endl;
     waitQueue.insert(pair<int,threadQCond>(lock, threadQCond {make_tuple(running,cond)}));
-    
+    //lockBool[lock] = true;
   } else {
     //cout << "Pushed Lock " << lock << " cond: " << cond << endl;
     waitQueue[lock].push_back(make_tuple(running,cond));
-    
+    //lockBool[lock] = true;
   }
-
+  
   ucontext_t* temp = running;
   running = readyQueue.front();
   readyQueue.erase(readyQueue.begin());
-  swapcontext(temp,readyQueue.front());
+  swapcontext(temp, running);
   interrupt_enable();
 }
 
@@ -253,6 +250,7 @@ int thread_signal(unsigned int lock, unsigned int cond)
 int thread_broadcast(unsigned int lock, unsigned int cond)
 {
   interrupt_disable();
+  
   for(int i = 0; i<waitQueue[lock].size();i++){
     if (get<1>(waitQueue[lock][i]) ==cond){
       readyQueue.push_back(get<0>(waitQueue[lock][i]));
