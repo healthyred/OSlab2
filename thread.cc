@@ -160,6 +160,7 @@ int thread_lock(unsigned int lock){
       
   }else{
     //add thread to lockqueue, and then switch to next ready thread
+    cout << "lock in usage.\n" << endl;
     lockQueue.push_back(make_tuple(running,lock));
     ucontext_t *temp = running;
     ucontext_t *next = readyQueue.front();
