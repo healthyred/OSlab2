@@ -185,7 +185,7 @@ int thread_unlock(unsigned int lock){
           readyQueue.push_back(get<0>(lockQueue[i]));
 	        //remove the lock from the queue of threads waiting for lock
 	        lockQueue.erase(lockQueue.begin());
-          lockBool[lock]=true;
+          //lockBool[lock]=true;
           break;
       }
     }
