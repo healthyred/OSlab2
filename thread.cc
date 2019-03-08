@@ -181,14 +181,14 @@ int thread_unlock(unsigned int lock){
     //cout << "Trying to unlock: " << lock << ".\n" << endl;
     for (int i = 0; i<lockQueue.size();i++){
       if (get<1>(lockQueue[i]) == lock){
-      	  //cout << "unlocked: " << lock << ".\n" << endl;	
+      	  cout << "unlocked: " << lock << ".\n" << endl;	
           readyQueue.push_back(get<0>(lockQueue[i]));
 	        //remove the lock from the queue of threads waiting for lock
 	        lockQueue.erase(lockQueue.begin());
+          lockBool[lock]=true;
           break;
       }
     }
-    lockBool[lock]=true;
   }
   interrupt_enable();
 }
