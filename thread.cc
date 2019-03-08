@@ -33,6 +33,7 @@ static void start(thread_startfunc_t func, void *arg)
   interrupt_enable();
   func(arg);
   interrupt_disable();
+  cout << "thread finished" << endl;
   if(previous){
     //deleting past ucontext
     delete[] (char*)previous->uc_stack.ss_sp;
@@ -197,8 +198,9 @@ int thread_wait(unsigned int lock, unsigned int cond)
   //need to swap running properly
   //1 is not properly being stored
   
+  //we pushing running into wait
   if (!waitQueue.count(lock)){
-    cout << "New lock" << endl;
+    cout << "waitQueue" << endl;
     waitQueue.insert(pair<int,threadQCond>(lock, threadQCond {make_tuple(running,cond)}));
     
   } else {
@@ -218,24 +220,18 @@ int thread_wait(unsigned int lock, unsigned int cond)
 int thread_signal(unsigned int lock, unsigned int cond)
 {
   interrupt_disable();
-  //We look inside the wait queue and search check for lock and cond, then we
+  //We look inside the wait queue and search check for lock and cond, then we add 
   //onto the end of the ready queue
   
-  //iterates through the vector in the dictionary
   for(int i = 0; i < waitQueue[lock].size();i++){
     
     if (get<1>(waitQueue[lock][i]) == cond){
       
       cout << "Found lock in cond.\n" << endl;
       
-      //readyQueue.push_back(get<0>(waitQueue[lock][i]));
       ucontext_t* temp = get<0>(waitQueue[lock][i]);
-      //ucontext_t* current = running;
-      //running = temp;
       waitQueue[lock].erase(waitQueue[lock].begin()+i);
       readyQueue.push_back(temp);
-      //cout << "The Readyq: " << readyQueue << endl;
-      //swapcontext(running,temp);
       break;
     }
   }
