@@ -156,12 +156,6 @@ int thread_lock(unsigned int lock){
   {
       //Lock the thread, and swap context sinve the thread is locked
       lockBool[lock] = true;  
-
-      /*lockQueue.push_back(make_tuple(running,lock));
-      ucontext_t *temp = running;
-      ucontext_t *next = readyQueue.front();
-      swapcontext(temp, next);
-      */
       
   }else{
     //pushing this thread back, onto the ready queue if lock is called
@@ -179,34 +173,20 @@ int thread_unlock(unsigned int lock){
   //a ready queue
   
   interrupt_disable();
-  
-  //check to see that we have a lock bool
-
-  /*
-  try(){
-    Bool check = lockBool[lock];
-  }
-  catch(){
-    cout << "Tried to unlock nothing. \n" << endl;
-    return -1;
-  }
-  */
-  
+    
   lockBool[lock] = false;
   if (!lockQueue.empty()){
     //cout << "Trying to unlock: " << lock << ".\n" << endl;
     for (int i = 0; i<lockQueue.size();i++){
       if (get<1>(lockQueue[i]) == lock){
-	  //push back the unlocked context into readyqueue
-	  cout << "unlocked: " << lock << ".\n" << endl;	
+      	  cout << "unlocked: " << lock << ".\n" << endl;	
           readyQueue.push_back(get<0>(lockQueue[i]));
-	  //remove the lock
-	  lockQueue.erase(lockQueue.begin()+i);
+	        //remove the lock from the queue of threads waiting for lock
+	        lockQueue.erase(lockQueue.begin()+i);
           break;
-          }
+      }
     }
-
-    //lockBool[lock]=true;
+    lockBool[lock]=true;
   }
   interrupt_enable();
 }
