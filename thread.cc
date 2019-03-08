@@ -33,7 +33,7 @@ static void start(thread_startfunc_t func, void *arg)
   interrupt_enable();
   func(arg);
   interrupt_disable();
-  cout << "thread finished" << endl;
+  //cout << "thread finished" << endl;
   if(previous){
     //deleting past ucontext
     delete[] (char*)previous->uc_stack.ss_sp;
@@ -180,7 +180,7 @@ int thread_unlock(unsigned int lock){
     //cout << "Trying to unlock: " << lock << ".\n" << endl;
     for (int i = 0; i<lockQueue.size();i++){
       if (get<1>(lockQueue[i]) == lock){
-      	  cout << "unlocked: " << lock << ".\n" << endl;	
+      	  //cout << "unlocked: " << lock << ".\n" << endl;	
           readyQueue.push_back(get<0>(lockQueue[i]));
 	        //remove the lock from the queue of threads waiting for lock
 	        lockQueue.erase(lockQueue.begin());
@@ -200,11 +200,11 @@ int thread_wait(unsigned int lock, unsigned int cond)
   
   //we pushing running into wait
   if (!waitQueue.count(lock)){
-    cout << "waitQueue" << endl;
+    //cout << "waitQueue" << endl;
     waitQueue.insert(pair<int,threadQCond>(lock, threadQCond {make_tuple(running,cond)}));
     
   } else {
-    cout << "Pushed Lock " << lock << " cond: " << cond << endl;
+    //cout << "Pushed Lock " << lock << " cond: " << cond << endl;
     waitQueue[lock].push_back(make_tuple(running,cond));
     
   }
@@ -227,7 +227,7 @@ int thread_signal(unsigned int lock, unsigned int cond)
     
     if (get<1>(waitQueue[lock][i]) == cond){
       
-      cout << "Found lock in cond.\n" << endl;
+      //cout << "Found lock in cond.\n" << endl;
       
       ucontext_t* temp = get<0>(waitQueue[lock][i]);
       waitQueue[lock].erase(waitQueue[lock].begin()+i);
