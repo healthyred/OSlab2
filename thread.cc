@@ -160,7 +160,7 @@ int thread_lock(unsigned int lock){
       
   }else{
     //add thread to lockqueue, and then switch to next ready thread
-    cout << "lock in usage.\n" << endl;
+    //cout << "lock in usage.\n" << endl;
     lockQueue.push_back(make_tuple(running,lock));
     ucontext_t *temp = running;
     ucontext_t *next = readyQueue.front();
@@ -181,11 +181,12 @@ int thread_unlock(unsigned int lock){
     //cout << "Trying to unlock: " << lock << ".\n" << endl;
     for (int i = 0; i<lockQueue.size();i++){
       if (get<1>(lockQueue[i]) == lock){
-      	  cout << "unlocked: " << lock << ".\n" << endl;	
-          readyQueue.push_back(get<0>(lockQueue[i]));
+      	  cout << "unlocked: " << lock << ".\n" << endl;
+          ucontext_t* temp = get<0>(lockQueue[i]);	
+          readyQueue.push_back(temp);
 	        //remove the lock from the queue of threads waiting for lock
 	        lockQueue.erase(lockQueue.begin());
-          //lockBool[lock]=true;
+          lockBool[lock]=true;
           break;
       }
     }
