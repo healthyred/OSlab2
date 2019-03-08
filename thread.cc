@@ -168,6 +168,7 @@ int thread_lock(unsigned int lock){
   }
   
   interrupt_enable();
+  return 0;
 }
 
 int thread_unlock(unsigned int lock){
@@ -177,21 +178,29 @@ int thread_unlock(unsigned int lock){
   interrupt_disable();
     
   lockBool[lock] = false;
+  cout << "thread unlocked " << lock << "\n"<< endl;
   if (!lockQueue.empty()){
     //cout << "Trying to unlock: " << lock << ".\n" << endl;
     for (int i = 0; i<lockQueue.size();i++){
       if (get<1>(lockQueue[i]) == lock){
-      	  cout << "unlocked: " << lock << ".\n" << endl;
-          ucontext_t* temp = get<0>(lockQueue[i]);	
+	//cout << "unlocked: " << lock << ".\n" << endl;
+          ucontext_t* temp = get<0>(lockQueue[i]);
+	  //cout << "before size" << readyQueue.size() << "\n" << endl;
           readyQueue.push_back(temp);
-	        //remove the lock from the queue of threads waiting for lock
-	        lockQueue.erase(lockQueue.begin());
+	  //remove the lock from the queue of threads waiting for lock
+	  //cout << "after size" << readyQueue.size() << "\n" << endl;
+	  if(temp == NULL){
+	    cout << "temp is null.\n" << endl;
+	  }
+	  
+	  lockQueue.erase(lockQueue.begin());
           lockBool[lock]=true;
           break;
       }
     }
   }
   interrupt_enable();
+  return 0;
 }
 
 int thread_wait(unsigned int lock, unsigned int cond)
@@ -238,6 +247,7 @@ int thread_signal(unsigned int lock, unsigned int cond)
     }
   }
   interrupt_enable();
+  return 0;
 }
 
 int thread_broadcast(unsigned int lock, unsigned int cond)
@@ -250,4 +260,5 @@ int thread_broadcast(unsigned int lock, unsigned int cond)
     }
   }
   interrupt_enable();
+  return 0;
 }
