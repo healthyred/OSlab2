@@ -158,7 +158,7 @@ int thread_lock(unsigned int lock){
       lockBool[lock] = true;  
       
   }else{
-    //pushing this thread back, onto the ready queue if lock is called
+    //add thread to lockqueue, and then switch to next ready thread
     lockQueue.push_back(make_tuple(running,lock));
     ucontext_t *temp = running;
     ucontext_t *next = readyQueue.front();
@@ -202,7 +202,7 @@ int thread_wait(unsigned int lock, unsigned int cond)
     waitQueue.insert(pair<int,threadQCond>(lock, threadQCond {make_tuple(running,cond)}));
     
   } else {
-    
+    cout << "Pushed Lock " << lock << " cond: " << cond << endl;
     waitQueue[lock].push_back(make_tuple(running,cond));
     
   }
@@ -218,20 +218,22 @@ int thread_wait(unsigned int lock, unsigned int cond)
 int thread_signal(unsigned int lock, unsigned int cond)
 {
   interrupt_disable();
-  //We look inside the wait queue and search for the thread_signal
+  //We look inside the wait queue and search check for lock and cond, then we
+  //onto the end of the ready queue
   
-  for(int i = 0; i<waitQueue[lock].size();i++){
+  //iterates through the vector in the dictionary
+  for(int i = 0; i < waitQueue[lock].size();i++){
     
     if (get<1>(waitQueue[lock][i]) == cond){
       
       cout << "Found lock in cond.\n" << endl;
       
-      readyQueue.push_back(get<0>(waitQueue[lock][i]));
-      //ucontext_t* temp = get<0>(waitQueue[lock][i]);
+      //readyQueue.push_back(get<0>(waitQueue[lock][i]));
+      ucontext_t* temp = get<0>(waitQueue[lock][i]);
       //ucontext_t* current = running;
       //running = temp;
-      //readyQueue.push_back(temp);
       waitQueue[lock].erase(waitQueue[lock].begin()+i);
+      readyQueue.push_back(temp);
       //cout << "The Readyq: " << readyQueue << endl;
       //swapcontext(running,temp);
       break;
