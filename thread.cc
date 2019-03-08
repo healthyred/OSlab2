@@ -15,11 +15,13 @@ using namespace std;
 typedef vector<tuple<ucontext_t*, int>> threadQCond;
 typedef vector<ucontext_t *> threadQ;
 
- threadQ readyQueue;
- map<int, threadQCond> waitQueue;
- threadQCond lockQueue;
-ucontext_t* running;
- map<int, bool> lockBool;
+threadQ readyQueue;
+map<int, threadQCond> waitQueue;
+threadQCond lockQueue;
+static ucontext_t* running;
+map<int, bool> lockBool;
+static ucontext_t* service;
+static ucontext_t* previous;
 
 void ending_output()
 {
@@ -28,16 +30,26 @@ void ending_output()
 
 static void start(thread_startfunc_t func, void *arg)
 {
+  interrupt_enable();
   func(arg);
-  //store thread as temp, set a new thread as running and then deallocate the temp variable
-  //Deallocate memory of the currently running thread
-  if(!readyQueue.empty()){
-    ucontext_t* temp = running;
-    ucontext_t* next = readyQueue.front();
-    swapcontext(temp, next);
-    readyQueue.erase(readyQueue.begin());
-    delete[] (char*)temp->uc_stack.ss_sp;
+  interrupt_disable();
+  if(previous){
+    //deleting past ucontext
+    delete[] (char*)previous->uc_stack.ss_sp;
+    delete previous;
   }
+
+  //store thread as temp, set a new thread as running and then deallocate the temp variable
+  if(!readyQueue.empty()){
+
+    previous = running;
+    ucontext_t* next = readyQueue.front();
+    readyQueue.erase(readyQueue.begin());
+    running = next;
+    setcontext(next);
+  }
+
+  setcontext(service);
 
 }
 
@@ -47,42 +59,39 @@ int thread_libinit(thread_startfunc_t func, void *arg)
 // We create this service thread and set it as running and we put it in the readyQueue
 // At the end of this function, we loop infinitely
 {
+  interrupt_disable();
   ucontext_t* ucontext_ptr; 
   char *stack; 
-  ucontext_t* oucp;
-  
+
+  if(service){
+    //Second libinit call
+    return -1;
+  }
+
   try{
-  ucontext_ptr = new ucontext_t;
-  oucp = new ucontext_t;
-  getcontext(ucontext_ptr);
-  stack = new char [STACK_SIZE];
-  ucontext_ptr->uc_stack.ss_sp = stack;
-  ucontext_ptr->uc_stack.ss_size = STACK_SIZE;
-  ucontext_ptr->uc_stack.ss_flags =0;
-  ucontext_ptr->uc_link = NULL;
+    ucontext_ptr = new ucontext_t;
+    getcontext(ucontext_ptr);
+    stack = new char [STACK_SIZE];
+    ucontext_ptr->uc_stack.ss_sp = stack;
+    ucontext_ptr->uc_stack.ss_size = STACK_SIZE;
+    ucontext_ptr->uc_stack.ss_flags =0;
+    ucontext_ptr->uc_link = NULL;
   }
   catch(bad_alloc){
     delete[] stack;
-    delete oucp;
     delete ucontext_ptr;
     return -1;
   }
 
   makecontext(ucontext_ptr, (void (*)()) start, 2, func, arg);
-  swapcontext(oucp, ucontext_ptr);
+
   running = ucontext_ptr;
+  service = new ucontext_t;
   
-  while (!readyQueue.empty() &&running !=NULL)
-  {
-    1+1;
-  }
+  swapcontext(service, ucontext_ptr);
 
-  //Try catch to deallocate if we are in deadlock
-  while(!waitQueue.empty()){
-    waitQueue.begin() -> first;
-  } 
-
-  ending_output(); 
+  ending_output();
+  interrupt_enable();
   exit(0);
   return 0;
 }
@@ -90,6 +99,7 @@ int thread_libinit(thread_startfunc_t func, void *arg)
 int thread_create(thread_startfunc_t func, void*arg)
 /*Whenever a thread is create, we create the context, and push it onto the running queue*/
 {
+  interrupt_disable();
   ucontext_t* ucontext_ptr; 
   char *stack; 
   try 
@@ -109,26 +119,31 @@ int thread_create(thread_startfunc_t func, void*arg)
   }
 
   makecontext(ucontext_ptr, (void (*)()) start, 2, func, arg);
-  // tuple<ucontext_t *, int> thread = make_tuple (ucontext_ptr, arg);
-  // TODO: making the thread wait for calls, and only when we decide to signal
-  // readyQueue.push_back(ucontext_ptr);
+  readyQueue.push_back(ucontext_ptr);
+  interrupt_enable();
   return 0;
 }
 
 int thread_yield(void){
+  cout << "thread lock.\n" << endl;
+
+  interrupt_disable();
   /*Sets the running as the next item of the queue,as running, and then pushes the current running back into the queue, returns 0 on success and -1 on failure*/
   if (!readyQueue.empty()){
   ucontext_t *temp = running;
   ucontext_t *next = readyQueue.front();
-  swapcontext(temp, next);
+  running = next;
   readyQueue.erase(readyQueue.begin());
   readyQueue.push_back(temp);
+  swapcontext(temp, next);
   }
+  interrupt_enable();
   return 0;
 }
 
 int thread_lock(unsigned int lock){
   interrupt_disable();
+  cout << "thread lock.\n" << endl;
   if (!lockBool.count(lock)){
       lockBool.insert(pair<int,bool>(lock, false));
 }
@@ -137,7 +152,9 @@ int thread_lock(unsigned int lock){
       lockBool[lock] = true;
   }else{
     lockQueue.push_back(make_tuple(running,lock));
-    swapcontext(running, readyQueue.front());
+    ucontext_t *temp = running;
+    ucontext_t *next = readyQueue.front();
+    swapcontext(temp, next);
   }
   interrupt_enable();
 }
@@ -156,42 +173,43 @@ int thread_unlock(unsigned int lock){
   }
   interrupt_enable();
 }
+
 int thread_wait(unsigned int lock, unsigned int cond)
 {
-interrupt_disable();
- if (!waitQueue.count(lock)){
-   waitQueue.insert(pair<int,threadQCond>(lock,   threadQCond {make_tuple(running,cond)}));
- } else {
-   waitQueue[lock].push_back(make_tuple(running,cond));
- }
- swapcontext(running,readyQueue.front());
- running = readyQueue.front();
- readyQueue.erase(readyQueue.begin());
-interrupt_enable();
+  interrupt_disable();
+  if (!waitQueue.count(lock)){
+    waitQueue.insert(pair<int,threadQCond>(lock,   threadQCond {make_tuple(running,cond)}));
+  } else {
+    waitQueue[lock].push_back(make_tuple(running,cond));
+  }
+  running = readyQueue.front();
+  readyQueue.erase(readyQueue.begin());
+  swapcontext(running,readyQueue.front());
+   interrupt_enable();
 }
 
 
 int thread_signal(unsigned int lock, unsigned int cond)
 {
-interrupt_disable();
- for(int i = 0; i<waitQueue[lock].size();i++){
-  if (get<1>(waitQueue[lock][i]) ==cond){
-    readyQueue.push_back(get<0>(waitQueue[lock][i]));
-    waitQueue[lock].erase(waitQueue[lock].begin()+i);
-    break;
+  interrupt_disable();
+  for(int i = 0; i<waitQueue[lock].size();i++){
+    if (get<1>(waitQueue[lock][i]) ==cond){
+      readyQueue.push_back(get<0>(waitQueue[lock][i]));
+      waitQueue[lock].erase(waitQueue[lock].begin()+i);
+      break;
+    }
   }
-}
- interrupt_enable();
+  interrupt_enable();
 }
 
 int thread_broadcast(unsigned int lock, unsigned int cond)
 {
-interrupt_disable();
-for(int i = 0; i<waitQueue[lock].size();i++){
-  if (get<1>(waitQueue[lock][i]) ==cond){
-    readyQueue.push_back(get<0>(waitQueue[lock][i]));
-    waitQueue[lock].erase(waitQueue[lock].begin()+i);
+  interrupt_disable();
+  for(int i = 0; i<waitQueue[lock].size();i++){
+    if (get<1>(waitQueue[lock][i]) ==cond){
+      readyQueue.push_back(get<0>(waitQueue[lock][i]));
+      waitQueue[lock].erase(waitQueue[lock].begin()+i);
+    }
   }
-}
-interrupt_enable();
+  interrupt_enable();
 }
