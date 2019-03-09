@@ -35,9 +35,7 @@ static void start(thread_startfunc_t func, void *arg)
 
   interrupt_enable();
   func(arg);
-
   //cout << "disable 1\n" << endl;
-
   interrupt_disable();
   //cout << "thread finished" << endl;
   if(previous){
@@ -171,33 +169,28 @@ int thread_yield(void){
 }
 
 int thread_lockhelper(unsigned int lock){
-    if(!service){
+  if(!service){
     //Has not called libinit
     return -1;
   }
+
+  //if thread has already called this lock, without switching
+  if (lockBool[lock] == running){
+    return -1;
+  }
   
-  if (lockBool.count(lock) == 0){
+
+  if (!lockBool.count(lock)){
       //if lock is not initiated, we create this lock
-      
-      
-      try{
-        temp = new pair<int,bool>* temp<int,bool>(lock,running);
-      }
-  
-      catch(bad_alloc){
-        delete temp;
-        return -1;
-      }
-      lockBool.push_back(&temp);
-
-
-    }
+      lockBool.insert(pair<int,ucontext_t*>(lock, nullptr));
+  }
     
 
     if (lockBool[lock] == nullptr)
     {
         //Lock the thread, and swap context sinve the thread is locked
-        lockBool[lock] = running;  
+        ucontext_t* temp = running;
+        lockBool[lock] = temp;  
     }else{
       //add thread to lockqueue, and then switch to next ready thread
       if(!readyQueue.empty()){
@@ -234,6 +227,12 @@ int thread_unlockHelper(unsigned int lock){
     //Has not called libinit
     return -1;
     }
+
+    //check if the lock doesn't exists and else we return -1
+    if(!lockBool.count(lock)){
+      return -1;
+    }
+
     lockBool[lock] = nullptr;
     if (!lockQueue.empty()){
       for (int i = 0; i<lockQueue.size();i++){
@@ -241,7 +240,8 @@ int thread_unlockHelper(unsigned int lock){
             ucontext_t* temp = get<0>(lockQueue[i]);
             readyQueue.push_back(temp);
             lockQueue.erase(lockQueue.begin() + i);
-            lockBool[lock]=running;
+            ucontext_t* store = running;
+            lockBool[lock] = store;  
             break;
         }
       }
@@ -263,7 +263,6 @@ int thread_unlock(unsigned int lock){
     interrupt_enable();
     return -1;
   }
-
   interrupt_enable();
   return 0;
 }
@@ -325,7 +324,6 @@ int thread_signal(unsigned int lock, unsigned int cond)
   //figure out when these fail
 
   for(int i = 0; i < waitQueue[lock].size();i++){
-    
     if (get<1>(waitQueue[lock][i]) == cond){
       ucontext_t* temp = get<0>(waitQueue[lock][i]);
       waitQueue[lock].erase(waitQueue[lock].begin()+i);
