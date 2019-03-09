@@ -1,7 +1,7 @@
 #include <iostream>
 #include "thread.h"
 #include <assert.h>
-
+//creates libinits
 using namespace std;
 
 int g=0;

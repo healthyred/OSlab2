@@ -39,7 +39,10 @@ void request(char *a) {
    if (stream.is_open()){
      string line;
      int i = 0;
+   // cout << "request\n" << endl;
+
      thread_lock(0);
+  //   cout << "1\n" << endl;
      while(getline(stream, line)){
        int intLine = atoi(line.c_str());
        auto x = SSTF(intLine,fileNum);
@@ -49,14 +52,22 @@ void request(char *a) {
        if  ((queue.size() == live_requests && live_requests <= max_requests)||(queue.size()==max_requests&&live_requests>max_requests)){
 	 //cout<<"signal"<<endl;
 	 thread_signal(0,cond);
+ //  cout << "2\n" << endl;
+
 	 thread_wait(0,start);
+  // cout << "3\n" << endl;
+
        }
+    //  cout << "4\n" << endl;
+
        if((queue.size() <max_requests && max_requests <live_requests)|| (queue.size() <live_requests && max_requests >=live_requests))
 	 {
+     	//   cout << "5\n" << endl;
+
 	   queue.push_back(x);
 	   request_output(intLine, fileNum);	   
 	   thread_signal(0,cond);
-	   
+
 	 }
        thread_wait(0,fileNum);
      }
@@ -95,7 +106,11 @@ void service(char **a)
   }
   thread_lock(0);
   while(live_requests != 0){
+   // cout << "before wait in service\n" << endl;
+
     thread_wait(0,cond);
+  //  cout << "after wait in service\n" << endl;
+
     if(live_requests == 0){break;}
     //cout<<"live_request"<<live_requests<<"max_request"<<max_requests<< "queue size" << queue.size() <<endl;
     if ((queue.size() == live_requests && live_requests <= max_requests)||(queue.size()==max_requests && live_requests>max_requests)){
@@ -104,8 +119,11 @@ void service(char **a)
       int x = get<1>(queue[i]);
       service_output(get<0>(queue[i]),get<1>(queue[i]));
       queue.erase(queue.begin()+i);
+       //     cout<<"error1"<<endl;
+
       thread_signal(0, x);
     }else{
+     // cout<<"error2"<<endl;
       thread_signal(0,start);
     }
   }
@@ -117,7 +135,7 @@ void service(char **a)
 int main(int argc, char* argv[]){
    max_requests = atoi(argv[1]);
 	queue;
-	live_requests = argc -3;
+	live_requests = argc -2;
 	cond = 2*live_requests;
 	if (thread_libinit( (thread_startfunc_t) service, (char **) argv)) 
 	  {
